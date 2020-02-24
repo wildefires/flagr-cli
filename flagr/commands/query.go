@@ -2,9 +2,9 @@ package commands
 
 import (
 	"fmt"
+	"github.com/antihax/optional"
 	"github.com/checkr/goflagr"
 	"github.com/urfave/cli"
-	"os"
 )
 
 func QuerySubCommand() cli.Command {
@@ -32,7 +32,8 @@ func QuerySubCommand() cli.Command {
 
 func queryRunCommand(c *cli.Context) error {
 	client := getFlagrClient(c)
-	_ = client
+	var flags []goflagr.Flag
+	var err error
 
 	if c.IsSet("id") {
 		// For this, we use Get not Find
@@ -41,17 +42,19 @@ func queryRunCommand(c *cli.Context) error {
 			logAndDie(fmt.Sprintf("No string with ID %d", c.Int("id")))
 		}
 
-		stdout := sprintSingleFlag(&flag)
-		header := "This is a header"
-		fmt.Fprintln(os.Stderr, header)
-		fmt.Println(stdout)
-		_ = flag
+		flags = []goflagr.Flag{flag}
 	}
 
-	fmt.Println("query hit")
-	return nil
-}
+	if c.IsSet("description"){
+		desc := c.String("description")
+		ffo := goflagr.FindFlagsOpts{DescriptionLike:optional.NewString(desc)}
+		flags, _, err = client.FlagApi.FindFlags(nil, &ffo)
+		if err != nil {
+			logAndDie(fmt.Sprintf("Error finding flags %v", err))
+		}
+	}
 
-func sprintSingleFlag(f *goflagr.Flag) string {
-	return f.Description
+	columns := []string{"ID","Description", "Key"}
+	formatFlags("table", "    ", true, columns, flags)
+	return nil
 }
